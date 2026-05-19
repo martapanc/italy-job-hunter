@@ -1,0 +1,28 @@
+{
+  "name": "italy-job-hunter",
+  "version": "1.0.0",
+  "description": "AI-powered job hunting automation for the Italian tech market.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "scout": "node scouting.js",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "job-hunting",
+    "ai",
+    "nodejs",
+    "automation",
+    "telegram"
+  ],
+  "author": "Simone Camerano",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@tavily/core": "^0.7.3",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}
