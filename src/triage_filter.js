@@ -27,7 +27,8 @@ Criteria to respond "SI":
 3. It must be a real job offer (discard freelancer profiles, forum posts, social posts, or help requests).
 
 Mandatory criteria to respond "NO":
-- If the position is clearly abroad (Canada, India, USA, etc.) and not open to Italy.
+- If the position is clearly abroad (Canada, India, USA, UK, etc.) and not open to Italy.
+- If the listing is in English and contains no mention of Italy, Italian cities (Milano, Roma, Torino, Napoli, etc.), or explicit acceptance of Italian/European candidates.
 - If it is a "Senior" role requiring more than 6-8 years of experience, or a Lead/Director role.
 - If the stack focuses only on other languages (pure Java, pure PHP, C#) without Node/Vue/Nuxt.
 
