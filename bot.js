@@ -28,21 +28,21 @@ async function sendMessage(text) {
 
 function runScript(script, label) {
   if (running) {
-    sendMessage('⚠️ A pipeline is already running. Please wait for it to finish.');
+    sendMessage('⚠️ Una pipeline è già in esecuzione. Attendi che finisca.');
     return;
   }
 
   running = true;
-  sendMessage(`🚀 <b>${label}</b> started...`);
+  sendMessage(`🚀 <b>${label}</b> avviato...`);
 
   const child = spawn('node', [script], { stdio: 'inherit' });
 
   child.on('close', (code) => {
     running = false;
     if (code === 0) {
-      sendMessage(`✅ <b>${label}</b> completed.`);
+      sendMessage(`✅ <b>${label}</b> completato.`);
     } else {
-      sendMessage(`❌ <b>${label}</b> failed (exit code ${code}).`);
+      sendMessage(`❌ <b>${label}</b> terminato con errore (codice ${code}).`);
     }
   });
 }
@@ -63,8 +63,8 @@ async function poll() {
 
       if (text === '/hunt') runScript('index.js', 'Job Hunt');
       else if (text === '/scout') runScript('scouting.js', 'Company Scout');
-      else if (text === '/status') sendMessage(running ? '⏳ Pipeline is currently running.' : '💤 Bot is idle.');
-      else if (text?.startsWith('/')) sendMessage('Available commands:\n/hunt — run job search\n/scout — run company scouting\n/status — check if a pipeline is running');
+      else if (text === '/status') sendMessage(running ? '⏳ Pipeline in esecuzione...' : '💤 Bot in attesa.');
+      else if (text?.startsWith('/')) sendMessage('Comandi disponibili:\n/hunt — avvia la ricerca lavoro\n/scout — avvia lo scouting aziende\n/status — controlla se una pipeline è in corso');
     }
   } catch (err) {
     console.error('❌ Poll error:', err.message);
