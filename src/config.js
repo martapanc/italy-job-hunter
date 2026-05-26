@@ -4,16 +4,29 @@ export const SEARCH_QUERY =
 
 /** Secondary Tavily query scoped to major remote job boards via includeDomains. */
 export const SEARCH_QUERY_JOB_BOARDS =
-  'software engineer fully remote';
+  '"software engineer" "fully remote" "apply" OR "apply now" OR "job description"';
 
 /** Domains included in the secondary job-board search. */
 export const JOB_BOARD_DOMAINS = [
   'remoteok.com',
   'weworkremotely.com',
-  'remote.co',
   'wellfound.com',
   'greenhouse.io',
   'lever.co',
+  'jobs.ashbyhq.com',
+];
+
+/**
+ * Domains excluded from the general web search.
+ * These aggregators only surface listing/search pages via Tavily; individual job ads
+ * are behind login walls and are not accessible to the search crawler.
+ */
+export const GENERAL_SEARCH_EXCLUDE_DOMAINS = [
+  'linkedin.com',
+  'indeed.com',
+  'ziprecruiter.com',
+  'glassdoor.com',
+  'arc.dev',
 ];
 
 /**
