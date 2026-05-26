@@ -1,13 +1,13 @@
 /** Tavily search query for Full Stack job listings in Italy. */
 export const SEARCH_QUERY =
-  '"Full Stack Developer" (Vue.js OR Nuxt) Node.js (Italia OR remoto) ("offerte di lavoro" OR "assunzione" OR "candidati")';
+  '"Full Stack Developer" (React OR Java OR Angular OR Python) Node.js (Andorra OR full remote) ("job offer")';
 
 /** Maximum number of raw results to fetch from Tavily per hunt run. */
 export const SEARCH_MAX_RESULTS = 20;
 
 /** Tavily search query for Retail-Tech companies in Italy. */
 export const SCOUT_QUERY =
-  '("software house" OR "tech company" OR "digital agency") (retail OR logistica OR "punti vendita" OR e-commerce) Italia';
+  '("software house" OR "tech company" OR "digital agency")';
 
 /** Maximum number of companies to fetch per scouting run. */
 export const SCOUT_MAX_RESULTS = 6;
