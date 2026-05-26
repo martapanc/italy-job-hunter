@@ -3,14 +3,14 @@ import { TRIAGE_MODEL } from './config.js';
 dotenv.config();
 
 /**
- * Runs a boolean triage on a single job listing using Groq.
- * Sends the listing to a fast LLM that responds only "SI" or "NO" based on whether
- * it matches the Italian market and the target tech stack.
+ * Boolean triage for a single job listing via Groq.
+ * Accepts only fully-remote senior/lead engineering roles with no geographic restrictions
+ * that would block a European remote worker.
  *
- * @param {{ title: string, content: string }} annuncio
- * @returns {Promise<boolean>} true if the listing passes the filter, false otherwise
+ * @param {{ title: string, content: string }} listing
+ * @returns {Promise<boolean>} true if the listing passes, false otherwise
  */
-export async function eseguiTriage(annuncio) {
+export async function runJobTriage(listing) {
   const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
@@ -18,24 +18,24 @@ export async function eseguiTriage(annuncio) {
     return false;
   }
 
-  const systemPrompt = `You are a ruthless boolean logic filter for job listings.
-Your ONLY job is to respond "SI" or "NO". Do not add explanations, greetings, or punctuation.
+  const systemPrompt = `You are a strict boolean filter for remote job listings.
+Respond ONLY with "YES" or "NO". No explanations, no punctuation.
 
-Criteria to respond "SI":
-1. The offer must be explicitly for the ITALIAN market (work in Italy or Full Remote open to Italian residents).
-2. The tech stack must include JavaScript/TypeScript and at least one of: Node.js, Vue.js, or Nuxt.
-3. It must be a real job offer (discard freelancer profiles, forum posts, social posts, or help requests).
+Respond YES if ALL of the following are true:
+1. The job is FULLY REMOTE (not hybrid, not on-site).
+2. Remote work from Europe or the UK is not explicitly excluded (e.g. it does not say "US residents only" or "must have US work authorization"). UK roles are fine — the candidate holds Indefinite Leave to Remain.
+3. The role is NOT explicitly junior or entry-level (senior, mid-level, unspecified level, and lead/staff are all acceptable).
+4. The role is a software engineering role: full-stack, backend, frontend, platform, or data engineering.
+5. It is a genuine job offer, not a profile page, forum post, or news article.
 
-Mandatory criteria to respond "NO":
-- If the position is clearly abroad (Canada, India, USA, UK, etc.) and not open to Italy.
-- If the listing is in English and contains no mention of Italy, Italian cities (Milano, Roma, Torino, Napoli, etc.), or explicit acceptance of Italian/European candidates.
-- If it is a "Senior" role requiring more than 6-8 years of experience, or a Lead/Director role.
-- If the stack focuses only on other languages (pure Java, pure PHP, C#) without Node/Vue/Nuxt.
+Respond NO if:
+- The job requires on-site or hybrid attendance.
+- It explicitly restricts to US residents only or requires US work authorization.
+- The role is explicitly junior, entry-level, or an internship.
+- The role is C-level, VP, or non-engineering Director.
+- It is not a real job listing.`;
 
-If the listing is valid respond: SI
-If the listing is NOT valid respond: NO`;
-
-  const userContent = `Title: ${annuncio.title}\nJob listing text: ${annuncio.content}`;
+  const userContent = `Title: ${listing.title}\nContent: ${listing.content}`;
 
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -50,9 +50,7 @@ If the listing is NOT valid respond: NO`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent },
         ],
-        // temperature 0 ensures deterministic boolean output
         temperature: 0.0,
-        // Only "SI" or "NO" expected; 5 tokens is more than sufficient
         max_tokens: 5,
       }),
     });
@@ -65,7 +63,7 @@ If the listing is NOT valid respond: NO`;
 
     const data = await response.json();
     const clean = data.choices[0].message.content.trim().toUpperCase();
-    return clean.includes('SI');
+    return clean.includes('YES');
 
   } catch (error) {
     console.error('❌ Error during Groq triage:', error.message);
@@ -74,13 +72,13 @@ If the listing is NOT valid respond: NO`;
 }
 
 /**
- * Checks whether a scouted company is based in Italy.
- * Rejects foreign companies before spending a DeepSeek call on them.
+ * Boolean triage for a scouted company via Groq.
+ * Accepts tech companies that are remote-friendly and plausibly hire senior engineers.
  *
- * @param {{ name: string, url: string, content: string }} azienda
- * @returns {Promise<boolean>} true if the company appears to be Italian, false otherwise
+ * @param {{ name: string, url: string, content: string }} company
+ * @returns {Promise<boolean>} true if the company passes, false otherwise
  */
-export async function eseguiTriageAzienda(azienda) {
+export async function runCompanyTriage(company) {
   const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
@@ -88,12 +86,19 @@ export async function eseguiTriageAzienda(azienda) {
     return false;
   }
 
-  const systemPrompt = `You are a boolean filter. Respond only "SI" or "NO". No explanations.
+  const systemPrompt = `You are a boolean filter. Respond ONLY "YES" or "NO". No explanations.
 
-Respond "SI" if the company is based in Italy or operates primarily in the Italian market.
-Respond "NO" if the company is foreign (USA, UK, India, etc.) with no clear Italian presence.`;
+Respond YES if the company:
+- Is a software/tech company (product, SaaS, agency, or startup)
+- Appears to be remote-friendly or remote-first
+- Would plausibly hire senior software engineers
 
-  const userContent = `Company: ${azienda.name}\nURL: ${azienda.url}\nDescription: ${azienda.content}`;
+Respond NO if:
+- It is clearly not a software/tech company
+- It explicitly requires on-site or local presence only
+- It is a recruitment agency rather than a direct employer`;
+
+  const userContent = `Company: ${company.name}\nURL: ${company.url}\nDescription: ${company.content}`;
 
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -120,7 +125,7 @@ Respond "NO" if the company is foreign (USA, UK, India, etc.) with no clear Ital
 
     const data = await response.json();
     const clean = data.choices[0].message.content.trim().toUpperCase();
-    return clean.includes('SI');
+    return clean.includes('YES');
 
   } catch (error) {
     console.error('❌ Error during company triage:', error.message);

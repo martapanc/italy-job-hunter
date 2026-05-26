@@ -1,87 +1,86 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-import { ANALYSIS_MODEL } from './config.js';
+import { OLLAMA_BASE_URL, OLLAMA_MODEL } from './config.js';
 dotenv.config();
 
 /**
- * Generates a spontaneous application strategy and cold-outreach pitch for a target company.
- * Reads the local CV and uses DeepSeek to craft a tailored message.
+ * Generates a spontaneous application pitch for a target company using a local Ollama model.
+ * Reads data/cv.md and data/profile.md for candidate context.
  *
- * @param {{ name: string, url: string, content: string }} azienda
+ * @param {{ name: string, url: string, content: string }} company
  * @returns {Promise<string>} formatted pitch report, or an error string on failure
  */
-export async function analizzaPerCandidaturaSpontanea(azienda) {
-  const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
-  if (!apiKey) {
-    console.error('❌ Error: DEEPSEEK_API_KEY not configured.');
-    return 'Analysis unavailable.';
-  }
-
+export async function generateCompanyPitch(company) {
   const cvPath = path.join(process.cwd(), 'data', 'cv.md');
-  let cvContesto = '';
-
-  if (fs.existsSync(cvPath)) {
-    try {
-      cvContesto = fs.readFileSync(cvPath, 'utf-8');
-      console.log('📖 [OK] CV loaded from: "data/cv.md"');
-    } catch {
-      console.warn('⚠️ Warning: CV file found but could not be read. Analysis will be generic.');
-    }
-  } else {
-    console.warn('⚠️ Warning: CV not found at data/cv.md. Analysis will be generic.');
-  }
-
-  const systemPrompt = `
-    You are a Senior Headhunter and Business Development expert in the Italian tech market.
-    Your task is to help Simone Camerano apply spontaneously to a target tech company.
-
-    Here is Simone's real CV:
-    ${cvContesto}
-
-    Analyze the provided company description and generate a structured report exactly like this (use HTML tags for formatting):
-
-    🚀 <b>WHY THIS COMPANY?</b>
-    (Explain in two lines what this company does and why it is interesting for Simone's stack)
-
-    🎯 <b>THE STRATEGIC HOOK (YOUR VALUE)</b>
-    (Highlight the synergy between the company's products/services and Simone's 26 years of operational experience
-    in retail management, team coordination, and commercial relationships. Explain how Simone deeply understands
-    the business logic of their clients or software.)
-
-    ✉️ <b>COLD OUTREACH PITCH (EMAIL / LINKEDIN)</b>
-    (Write a short, sharp, professional cover letter ready to send to the CTO or HR Manager.
-    Tone: confident, focused on solving business problems and Node.js/Vue.js development.)
-  `;
+  const profilePath = path.join(process.cwd(), 'data', 'profile.md');
+  let cvContent = '';
+  let profile = '';
 
   try {
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    cvContent = fs.readFileSync(cvPath, 'utf-8');
+  } catch {
+    console.warn('⚠️ CV not found at data/cv.md. Analysis will be generic.');
+  }
+
+  if (fs.existsSync(profilePath)) {
+    try {
+      profile = fs.readFileSync(profilePath, 'utf-8');
+    } catch {
+      console.warn('⚠️ Could not read data/profile.md.');
+    }
+  }
+
+  const systemPrompt = `You are a senior career advisor helping a software engineer find fully-remote opportunities worldwide.
+Generate a structured, ready-to-use spontaneous application for the given company.
+
+Candidate profile:
+${profile}
+
+Candidate CV:
+${cvContent}
+
+Generate a report using Markdown bold (**text**) for headings, optimized for Telegram:
+
+🚀 **WHY THIS COMPANY?**
+(2 lines: what they do and why it fits the candidate's background)
+
+🎯 **YOUR ANGLE**
+(What specific value the candidate brings — link their experience to this company's domain)
+
+🌍 **REMOTE COMPATIBILITY**
+(Does this company appear to support fully-remote work from Europe? Any flags?)
+
+✉️ **COLD OUTREACH MESSAGE**
+(Short, professional message to send to a CTO or Hiring Manager. Focused on value delivered.)`;
+
+  try {
+    const response = await fetch(`${OLLAMA_BASE_URL}/v1/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: ANALYSIS_MODEL,
+        model: OLLAMA_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           {
             role: 'user',
-            content: `Analyze this company for a spontaneous application:\nName/Site: ${azienda.name} (${azienda.url})\nContext: ${azienda.content}`,
+            content: `Company: ${company.name}\nWebsite: ${company.url}\nContext: ${company.content}`,
           },
         ],
         temperature: 0.3,
+        stream: false,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`DeepSeek API Error: ${response.status}`);
+      const body = await response.text().catch(() => '');
+      throw new Error(`Ollama API error: ${response.status} — ${body} (check OLLAMA_MODEL in config.js matches \`ollama list\`)`);
     }
 
     const data = await response.json();
     return data.choices?.[0]?.message?.content ?? 'Analysis unavailable.';
   } catch (error) {
-    console.error('❌ DeepSeek Spontaneous Error:', error.message);
+    console.error('❌ Error generating pitch:', error.message);
     return 'Error generating pitch.';
   }
 }

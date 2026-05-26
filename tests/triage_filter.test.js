@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { eseguiTriage } from '../src/triage_filter.js';
+import { runJobTriage } from '../src/triage_filter.js';
 
 vi.mock('dotenv', () => ({ default: { config: vi.fn() } }));
 
-const mockAnnuncio = {
-  title: 'Full Stack Developer Vue.js + Node.js',
-  content: 'Offerta per il mercato italiano. Stack richiesto: Node.js, Vue.js.',
+const mockListing = {
+  title: 'Senior Full Stack Engineer — Fully Remote',
+  content: 'We are hiring a senior full-stack engineer. Fully remote, anywhere in Europe. Stack: Node.js, React, TypeScript.',
 };
 
-describe('eseguiTriage', () => {
+describe('runJobTriage', () => {
   beforeEach(() => {
     process.env.GROQ_API_KEY = 'test-key';
   });
@@ -18,12 +18,12 @@ describe('eseguiTriage', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns true when Groq responds with "SI"', async () => {
+  it('returns true when Groq responds with "YES"', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ choices: [{ message: { content: 'SI' } }] }),
+      json: async () => ({ choices: [{ message: { content: 'YES' } }] }),
     }));
-    expect(await eseguiTriage(mockAnnuncio)).toBe(true);
+    expect(await runJobTriage(mockListing)).toBe(true);
   });
 
   it('returns false when Groq responds with "NO"', async () => {
@@ -31,24 +31,24 @@ describe('eseguiTriage', () => {
       ok: true,
       json: async () => ({ choices: [{ message: { content: 'NO' } }] }),
     }));
-    expect(await eseguiTriage(mockAnnuncio)).toBe(false);
+    expect(await runJobTriage(mockListing)).toBe(false);
   });
 
-  it('returns true when response contains "SI" with trailing text', async () => {
+  it('returns true when response contains "YES" with trailing text', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ choices: [{ message: { content: 'SI, è valido' } }] }),
+      json: async () => ({ choices: [{ message: { content: 'YES, this matches' } }] }),
     }));
-    expect(await eseguiTriage(mockAnnuncio)).toBe(true);
+    expect(await runJobTriage(mockListing)).toBe(true);
   });
 
   it('returns false when GROQ_API_KEY is missing', async () => {
     delete process.env.GROQ_API_KEY;
-    expect(await eseguiTriage(mockAnnuncio)).toBe(false);
+    expect(await runJobTriage(mockListing)).toBe(false);
   });
 
   it('returns false on network error without throwing', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network failure')));
-    await expect(eseguiTriage(mockAnnuncio)).resolves.toBe(false);
+    await expect(runJobTriage(mockListing)).resolves.toBe(false);
   });
 });

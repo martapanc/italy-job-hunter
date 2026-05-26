@@ -1,37 +1,51 @@
-/** Tavily search query for Full Stack job listings in Italy. */
+/** Primary Tavily query for senior remote software engineering listings (broad web search). */
 export const SEARCH_QUERY =
-  '"Full Stack Developer" (React OR Java OR Angular OR Python) Node.js (Andorra OR full remote) ("job offer")';
+  '"software engineer" OR "senior software engineer" OR "lead software engineer" OR "staff engineer" "fully remote" (full-stack OR backend OR frontend) -junior -graduate';
 
-/** Maximum number of raw results to fetch from Tavily per hunt run. */
-export const SEARCH_MAX_RESULTS = 20;
+/** Secondary Tavily query scoped to major remote job boards via includeDomains. */
+export const SEARCH_QUERY_JOB_BOARDS =
+  'software engineer fully remote';
 
-/** Tavily search query for Retail-Tech companies in Italy. */
+/** Domains included in the secondary job-board search. */
+export const JOB_BOARD_DOMAINS = [
+  'remoteok.com',
+  'weworkremotely.com',
+  'remote.co',
+  'wellfound.com',
+  'greenhouse.io',
+  'lever.co',
+];
+
+/**
+ * Maximum raw results per Tavily query.
+ * Two queries run per hunt (broad + job boards); total before dedup = 2x this value.
+ */
+export const SEARCH_MAX_RESULTS = 12;
+
+/** Tavily query for scouting remote-first tech companies worldwide. */
 export const SCOUT_QUERY =
-  '("software house" OR "tech company" OR "digital agency")';
+  '"remote-first" OR "fully remote" ("software company" OR "product company" OR "tech startup") "we are hiring" OR "open positions" senior engineer';
 
-/** Maximum number of companies to fetch per scouting run. */
+/** Maximum companies to fetch per scouting run. */
 export const SCOUT_MAX_RESULTS = 6;
 
 /** Groq model used for the boolean triage filter. */
 export const TRIAGE_MODEL = 'llama-3.1-8b-instant';
 
-/** DeepSeek model used for CV match analysis and pitch generation. */
-export const ANALYSIS_MODEL = 'deepseek-chat';
+/** Ollama base URL (OpenAI-compatible). Change if Ollama runs on a different host/port. */
+export const OLLAMA_BASE_URL = 'http://localhost:11434';
 
-/**
- * Delay in milliseconds between consecutive API calls.
- * Prevents hitting rate limits on Groq and DeepSeek free/low-cost tiers.
- */
+/** Ollama model for CV match analysis and pitch generation. Must be pulled locally via `ollama pull <model>`. */
+export const OLLAMA_MODEL = 'deepseek-r1:latest';
+
+/** Delay in milliseconds between consecutive API calls to respect Groq rate limits. */
 export const API_DELAY_MS = 2500;
 
-/**
- * Maximum character count per Telegram message chunk.
- * Telegram's hard limit is 4096; this value gives a safety buffer.
- */
+/** Maximum character count per Telegram message chunk. Telegram hard limit is 4096. */
 export const TELEGRAM_MAX_CHARS = 4000;
 
 /**
  * Minimum match score (0–100) required to include a listing in the Telegram report.
- * Listings analysed by DeepSeek but scoring below this threshold are silently dropped.
+ * Listings analysed by Ollama but scoring below this threshold are silently dropped.
  */
-export const MIN_MATCH_SCORE = 65;
+export const MIN_MATCH_SCORE = 60;

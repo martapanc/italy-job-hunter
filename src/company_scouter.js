@@ -4,12 +4,11 @@ import { SCOUT_QUERY, SCOUT_MAX_RESULTS } from './config.js';
 dotenv.config();
 
 /**
- * Searches for tech companies and software houses in the Italian Retail/Logistics sector.
- * Returns company metadata for downstream spontaneous application analysis.
+ * Searches for remote-first tech companies worldwide that plausibly hire senior engineers.
  *
  * @returns {Promise<Array<{name: string, url: string, content: string}>>}
  */
-export async function scoutAziendeRetailTech() {
+export async function scoutCompanies() {
   const apiKey = process.env.TAVILY_API_KEY?.trim();
   if (!apiKey) {
     console.error('❌ Error: TAVILY_API_KEY missing from .env');
@@ -27,7 +26,7 @@ export async function scoutAziendeRetailTech() {
     if (!response || !response.results) return [];
 
     return response.results.map(result => ({
-      name: result.title || 'Target Company',
+      name: result.title || 'Unknown Company',
       url: result.url || '#',
       content: result.content || '',
     }));

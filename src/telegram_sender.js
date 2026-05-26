@@ -67,3 +67,5 @@ export async function inviaATelegram(testo) {
     return false;
   }
 }
+
+export { convertiMarkdownInHtml as markdownToHtml, inviaATelegram as sendToTelegram };

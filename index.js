@@ -1,11 +1,11 @@
-import { cercaLavoriItalia } from './src/search_engine.js';
-import { eseguiTriage } from './src/triage_filter.js';
-import { analizzaConDeepSeek } from './src/deepseek_analyzer.js';
-import { inviaATelegram } from './src/telegram_sender.js';
+import { searchJobs } from './src/search_engine.js';
+import { runJobTriage } from './src/triage_filter.js';
+import { analyzeJobListing } from './src/deepseek_analyzer.js';
+import { sendToTelegram } from './src/telegram_sender.js';
 import { loadSeen, saveSeen } from './src/seen_store.js';
 import { API_DELAY_MS, TELEGRAM_MAX_CHARS, MIN_MATCH_SCORE } from './src/config.js';
 
-/** Extracts the numeric match score from a DeepSeek report string. Returns null if not found. */
+/** Extracts the numeric match score from an analysis report string. Returns null if not found. */
 function parseMatchScore(report) {
   const match = report.match(/MATCH SCORE[^:]*:\s*(\d+)%/i);
   return match ? parseInt(match[1], 10) : null;
@@ -15,23 +15,23 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function runHunter() {
   console.log('=====================================================');
-  console.log(`🚀 ITALY-JOB-HUNTER LIVE: ${new Date().toLocaleString('it-IT')}`);
+  console.log(`🚀 JOB HUNTER STARTED: ${new Date().toLocaleString()}`);
   console.log('=====================================================');
 
-  // Stage 1: web search
-  console.log('🔍 [STAGE 1] Scanning the web with Tavily...');
-  const rawListings = await cercaLavoriItalia();
-  console.log(`📊 Found ${rawListings.length} raw listings.`);
+  // Stage 1: web search (two parallel Tavily queries, merged + deduplicated)
+  console.log('🔍 [STAGE 1] Scanning job boards and the web with Tavily...');
+  const rawListings = await searchJobs();
+  console.log(`📊 Found ${rawListings.length} raw listings after deduplication.`);
 
   if (rawListings.length === 0) {
     console.log('🏁 No listings found. Ending run.');
     return;
   }
 
-  // Skip URLs already processed in previous runs to avoid duplicate notifications
+  // Skip URLs already processed in previous runs
   const seen = loadSeen();
   const newListings = rawListings.filter(a => !seen.has(a.url));
-  console.log(`🗂  ${newListings.length} new listings after deduplication (${rawListings.length - newListings.length} skipped).`);
+  console.log(`🗂  ${newListings.length} new listings (${rawListings.length - newListings.length} already seen).`);
 
   if (newListings.length === 0) {
     console.log('🏁 All listings already processed. Ending run.');
@@ -39,69 +39,65 @@ async function runHunter() {
   }
 
   console.log('-----------------------------------------------------');
-  console.log('🧠 [STAGE 2] Triage with Groq + DeepSeek analysis...');
+  console.log('🧠 [STAGE 2] Triage (Groq) + analysis (Ollama)...');
 
   const approvedCards = [];
 
   for (const listing of newListings) {
-    const passed = await eseguiTriage(listing);
+    const passed = await runJobTriage(listing);
 
     if (passed) {
-      console.log(`🔥 [APPROVED] Match found: "${listing.title}"`);
-      console.log('🤖 [STAGE 3] Generating analysis with DeepSeek-V3...');
-      const report = await analizzaConDeepSeek(listing);
+      console.log(`✅ [APPROVED] "${listing.title}" at ${listing.url}`);
+      console.log('🤖 [STAGE 3] Generating analysis with local Ollama model...');
+      const report = await analyzeJobListing(listing);
       const score = parseMatchScore(report);
 
       if (score !== null && score < MIN_MATCH_SCORE) {
         console.log(`📉 [FILTERED] "${listing.title}" — score ${score}% below threshold (${MIN_MATCH_SCORE}%).`);
       } else {
-        const card = `💼 <b>${listing.title.toUpperCase()}</b>\n\n${report}\n\n🔗 <a href="${listing.url}">View original listing</a>`;
+        const card = `💼 **${listing.title.toUpperCase()}**\n\n${report}\n\n🔗 [View listing](${listing.url})`;
         approvedCards.push(card);
       }
     } else {
-      console.log(`❌ [REJECTED] "${listing.title}" does not match.`);
+      console.log(`❌ [REJECTED] "${listing.title} at ${listing.url}"`);
     }
 
-    // Mark URL as seen and add courtesy delay to avoid hitting API rate limits
     seen.add(listing.url);
     await wait(API_DELAY_MS);
   }
 
-  // Persist the updated seen set before sending notifications
   saveSeen(seen);
 
-  // Stage 4: send accumulated report to Telegram
   console.log('-----------------------------------------------------');
   if (approvedCards.length === 0) {
-    console.log('🏁 Zero matches today. No notification sent.');
+    console.log('🏁 No matches today. No notification sent.');
     console.log('=====================================================');
     return;
   }
 
   console.log(`📬 Sending report for ${approvedCards.length} position(s)...`);
 
-  let buffer = `🔔 <b>ITALY-JOB-HUNTER - OPPORTUNITY REPORT</b>\n\n`;
-  buffer += `${approvedCards.length} match(es) found in the last 24 hours.\n\n`;
+  let buffer = `🔔 **JOB HUNTER — OPPORTUNITY REPORT**\n\n`;
+  buffer += `${approvedCards.length} match(es) found.\n\n`;
   buffer += `═`.repeat(15) + `\n\n`;
 
   let sentCount = 0;
 
   for (const card of approvedCards) {
-    // Chunk messages to stay safely below Telegram's 4096-character hard limit
     if ((buffer + card).length > TELEGRAM_MAX_CHARS) {
-      const sent = await inviaATelegram(buffer);
+      const sent = await sendToTelegram(buffer);
       if (sent) sentCount++;
-      buffer = `📦 <b>OPPORTUNITY REPORT (Continued...)</b>\n\n`;
+      buffer = `📦 **OPPORTUNITY REPORT (Continued...)**\n\n`;
     }
     buffer += card + `\n\n` + `═`.repeat(15) + `\n\n`;
   }
 
   if (buffer.trim() !== '') {
-    const sent = await inviaATelegram(buffer);
+    const sent = await sendToTelegram(buffer);
     if (sent) sentCount++;
   }
 
-  console.log(`✅ Report delivered! Total messages sent: ${sentCount}`);
+  console.log(`✅ Report delivered! Messages sent: ${sentCount}`);
   console.log('=====================================================');
 }
 

@@ -1,69 +1,64 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-import { ANALYSIS_MODEL } from './config.js';
+import { OLLAMA_BASE_URL, OLLAMA_MODEL } from './config.js';
 dotenv.config();
 
 /**
- * Reads the local CV and asks DeepSeek for a detailed CV-vs-listing match analysis.
- * Returns a Telegram-optimized report with match score, gap analysis, and a recruiter hook.
+ * Analyzes a job listing against the user's CV using a local Ollama model.
+ * Reads data/cv.md for the candidate's experience and data/profile.md for job preferences.
  *
- * @param {{ title: string, url: string, content: string }} annuncio
+ * @param {{ title: string, url: string, content: string }} listing
  * @returns {Promise<string>} compatibility report, or an error string on failure
  */
-export async function analizzaConDeepSeek(annuncio) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-
-  if (!apiKey) {
-    console.error('❌ Error: DEEPSEEK_API_KEY not configured in .env');
-    return 'API configuration error.';
-  }
-
+export async function analyzeJobListing(listing) {
   try {
     const cvPath = path.join(process.cwd(), 'data', 'cv.md');
+    const profilePath = path.join(process.cwd(), 'data', 'profile.md');
     const cvContent = fs.readFileSync(cvPath, 'utf-8');
+    const profile = fs.existsSync(profilePath) ? fs.readFileSync(profilePath, 'utf-8') : '';
 
-    const systemPrompt = `You are a Senior Headhunter and Career Counselor expert in the Italian tech market.
-Analyze a job listing and cross-reference it with the user's CV to assess real compatibility,
-highlighting strategic strengths (soft skills, business/management background) and technical gaps.
+    const systemPrompt = `You are a senior tech recruiter and career advisor.
+Analyze the job listing against the candidate's CV and profile. Generate a concise report in English,
+optimized for Telegram (bold headings, bullet points, no long walls of text).
 
-Generate a report in ITALIAN, optimized for Telegram (bold for titles, scannable text, no walls of text).
+Candidate profile:
+${profile}
 
-Structure the response EXACTLY like this:
-🎯 **MATCH SCORE TECNICO**: [Percentage based on required Node/Vue/Nuxt stack]
-📈 **IL SUPERPOTERE (SINERGIA DI BACKGROUND)**: [How the user's 20+ years of operational/commercial experience adds value in this role]
-⚠️ **ANALISI DEL GAP**: [What is missing or should be studied/mentioned in the interview]
-📝 **GANCIO PER MESSAGGIO / COPERTINA**: [3-4 line text ready to use for a recruiter or LinkedIn message]`;
+Structure the response exactly like this:
+🎯 **MATCH SCORE**: [0–100% based on tech stack and experience overlap]
+✅ **STRENGTHS**: [2–3 bullet points — what the candidate brings that fits this role]
+⚠️ **GAPS**: [What is missing or worth preparing for the interview]
+📝 **OUTREACH HOOK**: [2–3 sentence message ready to send to a recruiter or via LinkedIn]
+🌍 **REMOTE/LOCATION NOTE**: [Flag any geographic restrictions or timezone requirements. Note: UK roles are fine (candidate holds ILR). Flag US-only restrictions or on-site requirements.]`;
 
-    const userContent = `### MY CV:\n${cvContent}\n\n### JOB LISTING:\nTitle: ${annuncio.title}\nLink: ${annuncio.url}\nText: ${annuncio.content}`;
+    const userContent = `### CANDIDATE CV:\n${cvContent}\n\n### JOB LISTING:\nTitle: ${listing.title}\nLink: ${listing.url}\nText: ${listing.content}`;
 
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    const response = await fetch(`${OLLAMA_BASE_URL}/v1/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: ANALYSIS_MODEL,
+        model: OLLAMA_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent },
         ],
-        // balance between creative cover letter writing and precise match scoring
         temperature: 0.3,
-        max_tokens: 1000,
+        max_tokens: 800,
+        stream: false,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`DeepSeek API Error: ${response.status}`);
+      const body = await response.text().catch(() => '');
+      throw new Error(`Ollama API error: ${response.status} — ${body} (check OLLAMA_MODEL in config.js matches \`ollama list\`)`);
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content ?? 'Unable to generate DeepSeek analysis for this listing.';
+    return data.choices?.[0]?.message?.content ?? 'Unable to generate analysis.';
 
   } catch (error) {
-    console.error('❌ Error during DeepSeek analysis:', error);
-    return 'Unable to generate DeepSeek analysis for this listing.';
+    console.error('❌ Error during job analysis:', error.message);
+    return 'Unable to generate job analysis.';
   }
 }

@@ -1,26 +1,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { analizzaPerCandidaturaSpontanea } from '../src/spontaneous_analyzer.js';
+import { generateCompanyPitch } from '../src/spontaneous_analyzer.js';
 
 vi.mock('dotenv', () => ({ default: { config: vi.fn() } }));
 vi.mock('fs');
 
 import fs from 'fs';
 
-const mockAzienda = {
-  name: 'SmartRetail Srl',
-  url: 'https://smartretail.it',
-  content: 'Software house specializzata in soluzioni per la GDO.',
+const mockCompany = {
+  name: 'Acme Remote Inc.',
+  url: 'https://acmeremote.io',
+  content: 'A fully-remote SaaS company building developer tools. Hiring senior engineers.',
 };
 
-describe('analizzaPerCandidaturaSpontanea', () => {
+describe('generateCompanyPitch', () => {
   beforeEach(() => {
-    process.env.DEEPSEEK_API_KEY = 'test-key';
     vi.mocked(fs.existsSync).mockReturnValue(true);
-    vi.mocked(fs.readFileSync).mockReturnValue('# My CV');
+    vi.mocked(fs.readFileSync).mockReturnValue('# My CV\nSenior engineer with 8+ years.');
   });
 
   afterEach(() => {
-    delete process.env.DEEPSEEK_API_KEY;
     vi.restoreAllMocks();
   });
 
@@ -29,13 +27,13 @@ describe('analizzaPerCandidaturaSpontanea', () => {
       ok: true,
       json: async () => ({ choices: [{ message: { content: 'Pitch content here' } }] }),
     }));
-    const result = await analizzaPerCandidaturaSpontanea(mockAzienda);
+    const result = await generateCompanyPitch(mockCompany);
     expect(result).toBe('Pitch content here');
   });
 
-  it('returns error string when API key is missing', async () => {
-    delete process.env.DEEPSEEK_API_KEY;
-    const result = await analizzaPerCandidaturaSpontanea(mockAzienda);
+  it('returns an error string when Ollama is unreachable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
+    const result = await generateCompanyPitch(mockCompany);
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
   });
@@ -43,9 +41,9 @@ describe('analizzaPerCandidaturaSpontanea', () => {
   it('returns error string when choices is missing from response without throwing', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ error: 'quota exceeded' }),
+      json: async () => ({ error: 'model not found' }),
     }));
-    const result = await analizzaPerCandidaturaSpontanea(mockAzienda);
+    const result = await generateCompanyPitch(mockCompany);
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
   });
@@ -55,8 +53,20 @@ describe('analizzaPerCandidaturaSpontanea', () => {
       ok: false,
       status: 500,
     }));
-    const result = await analizzaPerCandidaturaSpontanea(mockAzienda);
+    const result = await generateCompanyPitch(mockCompany);
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('proceeds gracefully when cv.md cannot be read', async () => {
+    vi.mocked(fs.readFileSync).mockImplementation(() => {
+      throw new Error('ENOENT');
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'Generic pitch' } }] }),
+    }));
+    const result = await generateCompanyPitch(mockCompany);
+    expect(result).toBe('Generic pitch');
   });
 });
