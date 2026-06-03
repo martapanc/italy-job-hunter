@@ -1,6 +1,10 @@
 import { spawn } from 'child_process';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 dotenv.config();
+
+const PROJECT_DIR = dirname(fileURLToPath(import.meta.url));
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN?.trim();
 const CHAT_ID = String(process.env.TELEGRAM_CHAT_ID?.trim());
@@ -35,7 +39,12 @@ function runScript(script, label) {
   running = true;
   sendMessage(`🚀 <b>${label}</b> started...`);
 
-  const child = spawn('node', [script], { stdio: 'inherit' });
+  const child = spawn(process.execPath, [script], { stdio: 'inherit', cwd: PROJECT_DIR });
+
+  child.on('error', (err) => {
+    running = false;
+    sendMessage(`❌ <b>${label}</b> failed to start: ${err.message}`);
+  });
 
   child.on('close', (code) => {
     running = false;

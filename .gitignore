@@ -5,3 +5,5 @@ data/cv.md
 
 .idea
 .DS_Store
+
+logs/
