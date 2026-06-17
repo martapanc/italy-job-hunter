@@ -1,7 +1,7 @@
 import { tavily } from '@tavily/core';
 import dotenv from 'dotenv';
 import {
-  SEARCH_QUERY,
+  SEARCH_QUERIES,
   SEARCH_QUERY_JOB_BOARDS,
   JOB_BOARD_DOMAINS,
   GENERAL_SEARCH_EXCLUDE_DOMAINS,
@@ -63,9 +63,12 @@ export async function searchJobs() {
 
   const tvly = tavily({ apiKey });
 
+  // Rotate the broad-web query per run so the open-web search doesn't keep hitting the same pool.
+  const broadQuery = SEARCH_QUERIES[Math.floor(Math.random() * SEARCH_QUERIES.length)];
+
   try {
     const [generalResponse, boardsResponse] = await Promise.all([
-      tvly.search(SEARCH_QUERY, {
+      tvly.search(broadQuery, {
         searchDepth: 'advanced',
         maxResults: SEARCH_MAX_RESULTS,
         excludeDomains: GENERAL_SEARCH_EXCLUDE_DOMAINS,

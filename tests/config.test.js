@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   SEARCH_QUERY,
+  SEARCH_QUERIES,
   SEARCH_QUERY_JOB_BOARDS,
   JOB_BOARD_DOMAINS,
   SEARCH_MAX_RESULTS,
@@ -12,12 +13,27 @@ import {
   API_DELAY_MS,
   TELEGRAM_MAX_CHARS,
   MIN_MATCH_SCORE,
+  DIRECTORY_SEED_ENABLED,
+  DIRECTORY_SEED_MAX_PER_SOURCE,
 } from '../src/config.js';
 
 describe('config', () => {
   it('exports SEARCH_QUERY as a non-empty string', () => {
     expect(typeof SEARCH_QUERY).toBe('string');
     expect(SEARCH_QUERY.length).toBeGreaterThan(0);
+  });
+
+  it('exports SEARCH_QUERIES as a non-empty array of non-empty strings', () => {
+    expect(Array.isArray(SEARCH_QUERIES)).toBe(true);
+    expect(SEARCH_QUERIES.length).toBeGreaterThan(0);
+    for (const q of SEARCH_QUERIES) {
+      expect(typeof q).toBe('string');
+      expect(q.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('exposes SEARCH_QUERY as the first SEARCH_QUERIES entry', () => {
+    expect(SEARCH_QUERY).toBe(SEARCH_QUERIES[0]);
   });
 
   it('exports SEARCH_QUERY_JOB_BOARDS as a non-empty string', () => {
@@ -75,5 +91,14 @@ describe('config', () => {
     expect(typeof MIN_MATCH_SCORE).toBe('number');
     expect(MIN_MATCH_SCORE).toBeGreaterThanOrEqual(0);
     expect(MIN_MATCH_SCORE).toBeLessThanOrEqual(100);
+  });
+
+  it('exports DIRECTORY_SEED_ENABLED as a boolean', () => {
+    expect(typeof DIRECTORY_SEED_ENABLED).toBe('boolean');
+  });
+
+  it('exports DIRECTORY_SEED_MAX_PER_SOURCE as a positive number', () => {
+    expect(typeof DIRECTORY_SEED_MAX_PER_SOURCE).toBe('number');
+    expect(DIRECTORY_SEED_MAX_PER_SOURCE).toBeGreaterThan(0);
   });
 });

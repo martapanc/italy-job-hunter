@@ -1,10 +1,30 @@
 import { scoutCompanies } from './src/company_scouter.js';
+import { seedCompaniesFromDirectories } from './src/directory_seeder.js';
 import { runCompanyTriage } from './src/triage_filter.js';
 import { generateCompanyPitch } from './src/spontaneous_analyzer.js';
 import { sendToTelegram } from './src/telegram_sender.js';
-import { API_DELAY_MS, TELEGRAM_MAX_CHARS } from './src/config.js';
+import { API_DELAY_MS, TELEGRAM_MAX_CHARS, DIRECTORY_SEED_ENABLED } from './src/config.js';
 
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/** Merges company lists, dropping duplicates by hostname (falling back to raw url). */
+function mergeCompanies(...lists) {
+  const seen = new Set();
+  const keyFor = (url) => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return url;
+    }
+  };
+  return lists.flat().filter(c => {
+    if (!c?.url) return false;
+    const key = keyFor(c.url);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 async function runScouting() {
   console.log('=====================================================');
@@ -12,8 +32,18 @@ async function runScouting() {
   console.log('=====================================================');
 
   console.log('📡 Searching for remote-first tech companies...');
-  const companies = await scoutCompanies();
-  console.log(`📊 Found ${companies.length} potential target companies.`);
+  const searched = await scoutCompanies();
+  console.log(`   ↳ ${searched.length} from web search.`);
+
+  let seeded = [];
+  if (DIRECTORY_SEED_ENABLED) {
+    console.log('📚 Seeding from curated directories (remoteintech, italiaremote)...');
+    seeded = await seedCompaniesFromDirectories();
+    console.log(`   ↳ ${seeded.length} from directories.`);
+  }
+
+  const companies = mergeCompanies(searched, seeded);
+  console.log(`📊 Found ${companies.length} potential target companies (after dedup).`);
 
   if (companies.length === 0) {
     console.log('🏁 No companies found in this session.');
